@@ -57,18 +57,6 @@ class dataset_unpair(data.Dataset):
     self.input_dim_A = opts.input_dim_a
     self.input_dim_B = opts.input_dim_b
 
-    # setup image transformation
-    # transforms = [Resize((opts.resize_size, opts.resize_size), Image.BICUBIC)]
-    # if opts.phase == 'train':
-    #   transforms.append(RandomCrop(opts.crop_size))
-    # else:
-    #   transforms.append(CenterCrop(opts.crop_size))
-    # if not opts.no_flip:
-    #   transforms.append(RandomHorizontalFlip())
-    # transforms.append(ToTensor())
-    # transforms.append(Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))
-    # self.transforms = Compose(transforms)
-    # print('A: %d, B: %d images'%(self.A_size, self.B_size))
     return
 
   def __getitem__(self, index):
@@ -81,14 +69,9 @@ class dataset_unpair(data.Dataset):
     return data_A, data_B
 
   def load_img(self, img_name, input_dim):
-    # img = Image.open(img_name).convert('RGB')
-    # img = self.transforms(img)
-    # if input_dim == 1:
-    #   img = img[0, ...] * 0.299 + img[1, ...] * 0.587 + img[2, ...] * 0.114
-    #   img = img.unsqueeze(0)
-    # return img
     sequence = c3d(img_name)
     point_data = sequence['data']['points'][0:3,:,:]/1500
+    point_data = point_data.reshape([point_data.shape[0] * point_data.shape[1], -1])
     img = torch.from_numpy(point_data).float()
     return img
 

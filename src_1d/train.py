@@ -47,7 +47,6 @@ def main():
       # input data
       images_a = images_a.cuda(opts.gpu).detach()
       images_b = images_b.cuda(opts.gpu).detach()
-      # print(len(train_loader))
 
       # update model
       if (it + 1) % opts.d_iter != 0 and it < len(train_loader) - 2:
@@ -61,9 +60,6 @@ def main():
       # model.forward()
       # model.update_EG()
 
-      # save to display file
-      # if not opts.no_display_img:
-      #   saver.write_display(total_it, model)
 
       print('total_it: %d (ep %d, it %d), lr %08f' % (total_it, ep, it, model.gen_opt.param_groups[0]['lr']))
       total_it += 1

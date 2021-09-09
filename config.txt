@@ -1,6 +1,6 @@
 training:
 conda activate env1
-cd /d F:/DRIT-ability/DRIT-ability/src
+cd /d F:/DRIT-ability/DRIT-ability/src_1d
 python train.py --dataroot ../datasets/rris --name ability
 
 visualise loss:

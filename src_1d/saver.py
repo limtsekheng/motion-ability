@@ -43,15 +43,15 @@ class Saver():
     self.writer = SummaryWriter(logdir=self.display_dir)
 
   # write losses and images to tensorboard
-  def write_display(self, total_it, model):
-    if (total_it + 1) % self.display_freq == 0:
-      # write loss
-      members = [attr for attr in dir(model) if not callable(getattr(model, attr)) and not attr.startswith("__") and 'loss' in attr]
-      for m in members:
-        self.writer.add_scalar(m, getattr(model, m), total_it)
-      # write img
-      image_dis = torchvision.utils.make_grid(model.image_display, nrow=model.image_display.size(0)//2)/2 + 0.5
-      self.writer.add_image('Image', image_dis, total_it)
+  # def write_display(self, total_it, model):
+  #   if (total_it + 1) % self.display_freq == 0:
+  #     # write loss
+  #     members = [attr for attr in dir(model) if not callable(getattr(model, attr)) and not attr.startswith("__") and 'loss' in attr]
+  #     for m in members:
+  #       self.writer.add_scalar(m, getattr(model, m), total_it)
+  #     # write img
+  #     image_dis = torchvision.utils.make_grid(model.image_display, nrow=model.image_display.size(0)//2)/2 + 0.5
+  #     self.writer.add_image('Image', image_dis, total_it)
 
   # save result images
   def write_img(self, ep, model):
@@ -60,7 +60,6 @@ class Saver():
 
       for i in range(8):
         img_filename = '%s/gen_%05d_%d.c3d' % (self.image_dir, ep, i)
-        # torchvision.utils.save_image(assembled_images / 2 + 0.5, img_filename, nrow=1)
         new = c3d()
         new['parameters']['POINT']['RATE']['value'] = [200]
         new['parameters']['POINT']['LABELS']['value'] = [str(x) for x in range(72)]
