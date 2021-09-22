@@ -7,7 +7,7 @@ class DRIT(nn.Module):
     super(DRIT, self).__init__()
 
     # parameters
-    lr = 0.0001 
+    lr = 0.00001
     lr_dcontent = lr / 2.5
 
     # discriminators
@@ -221,36 +221,74 @@ class DRIT(nn.Module):
     nn.utils.clip_grad_norm_(self.disContent.parameters(), 1)
     self.disContent_opt.step()
 
+    # WGAN ----------------------------------------------------------------------------
+    for p in self.disA.parameters():
+      p.data.clamp_(-0.01, 0.01)
+    for p in self.disB.parameters():
+      p.data.clamp_(-0.01, 0.01)
+    for p in self.disA2.parameters():
+      p.data.clamp_(-0.01, 0.01)
+    for p in self.disB2.parameters():
+      p.data.clamp_(-0.01, 0.01)
+    for p in self.disContent.parameters():
+      p.data.clamp_(-0.01, 0.01)
+    # ---------------------------------------------------------------------------------
+
+
+
+  # def backward_D(self, netD, real, fake):
+  #   pred_fake = netD.forward(fake.detach())
+  #   pred_real = netD.forward(real.detach())
+  #   loss_D = 0
+  #   for it, (out_a, out_b) in enumerate(zip(pred_fake, pred_real)):
+  #     # out_a[out_a!=out_a] = 0   # filter nan value
+  #     # out_b[out_b!=out_b] = 0
+  #     out_fake = nn.functional.sigmoid(out_a)
+  #     out_real = nn.functional.sigmoid(out_b)
+  #     all0 = torch.zeros_like(out_fake).cuda(self.gpu)
+  #     all1 = torch.ones_like(out_real).cuda(self.gpu)
+  #     ad_fake_loss = nn.functional.binary_cross_entropy(out_fake, all0)
+  #     ad_true_loss = nn.functional.binary_cross_entropy(out_real, all1)
+  #     loss_D += ad_true_loss + ad_fake_loss
+  #   loss_D.backward()
+  #   return loss_D
+  # WGAN loss ------------------------------------------
   def backward_D(self, netD, real, fake):
     pred_fake = netD.forward(fake.detach())
     pred_real = netD.forward(real.detach())
     loss_D = 0
     for it, (out_a, out_b) in enumerate(zip(pred_fake, pred_real)):
-      # out_a[out_a!=out_a] = 0   # filter nan value
-      # out_b[out_b!=out_b] = 0
-      out_fake = nn.functional.sigmoid(out_a)
-      out_real = nn.functional.sigmoid(out_b)
-      all0 = torch.zeros_like(out_fake).cuda(self.gpu)
-      all1 = torch.ones_like(out_real).cuda(self.gpu)
-      ad_fake_loss = nn.functional.binary_cross_entropy(out_fake, all0)
-      ad_true_loss = nn.functional.binary_cross_entropy(out_real, all1)
-      loss_D += ad_true_loss + ad_fake_loss
+      out_fake = out_a
+      out_real = out_b
+      loss_D += -(torch.mean(out_real) - torch.mean(out_fake)) * 20
     loss_D.backward()
     return loss_D
 
+
+  # def backward_contentD(self, imageA, imageB):
+  #   pred_fake = self.disContent.forward(imageA.detach())
+  #   pred_real = self.disContent.forward(imageB.detach())
+  #   for it, (out_a, out_b) in enumerate(zip(pred_fake, pred_real)):
+  #     out_fake = nn.functional.sigmoid(out_a)
+  #     out_real = nn.functional.sigmoid(out_b)
+  #     all1 = torch.ones((out_real.size(0))).cuda(self.gpu)
+  #     all0 = torch.zeros((out_fake.size(0))).cuda(self.gpu)
+  #     ad_true_loss = nn.functional.binary_cross_entropy(out_real, all1)
+  #     ad_fake_loss = nn.functional.binary_cross_entropy(out_fake, all0)
+  #   loss_D = ad_true_loss + ad_fake_loss
+  #   loss_D.backward()
+  #   return loss_D
+  # WGAN loss -----------------------------------------------
   def backward_contentD(self, imageA, imageB):
     pred_fake = self.disContent.forward(imageA.detach())
     pred_real = self.disContent.forward(imageB.detach())
     for it, (out_a, out_b) in enumerate(zip(pred_fake, pred_real)):
-      out_fake = nn.functional.sigmoid(out_a)
-      out_real = nn.functional.sigmoid(out_b)
-      all1 = torch.ones((out_real.size(0))).cuda(self.gpu)
-      all0 = torch.zeros((out_fake.size(0))).cuda(self.gpu)
-      ad_true_loss = nn.functional.binary_cross_entropy(out_real, all1)
-      ad_fake_loss = nn.functional.binary_cross_entropy(out_fake, all0)
-    loss_D = ad_true_loss + ad_fake_loss
+      out_fake = out_a
+      out_real = out_b
+    loss_D = -(torch.mean(out_real) - torch.mean(out_fake)) * 2
     loss_D.backward()
     return loss_D
+
 
   def update_EG(self):
     # update G, Ec, Ea
@@ -269,12 +307,15 @@ class DRIT(nn.Module):
 
   def backward_EG(self):
     # content Ladv for generator
-    loss_G_GAN_Acontent = self.backward_G_GAN_content(self.z_content_a)
-    loss_G_GAN_Bcontent = self.backward_G_GAN_content(self.z_content_b)
+    # loss_G_GAN_Acontent = self.backward_G_GAN_content(self.z_content_a)
+    # loss_G_GAN_Bcontent = self.backward_G_GAN_content(self.z_content_b)
+    # WGAN loss -----------------------------------------------------------
+    loss_G_GAN_Acontent = -self.backward_G_GAN_content(self.z_content_a) * 2
+    loss_G_GAN_Bcontent = self.backward_G_GAN_content(self.z_content_b) * 2
 
     # Ladv for generator
-    loss_G_GAN_A = self.backward_G_GAN(self.fake_A_encoded, self.disA)
-    loss_G_GAN_B = self.backward_G_GAN(self.fake_B_encoded, self.disB)
+    loss_G_GAN_A = self.backward_G_GAN(self.fake_A_encoded, self.disA) * 20
+    loss_G_GAN_B = self.backward_G_GAN(self.fake_B_encoded, self.disB) * 20
 
     # KL loss - z_a
     kl_element_a = self.mu_a.pow(2).add_(self.logvar_a.exp()).mul_(-1).add_(1).add_(self.logvar_a)
@@ -287,10 +328,10 @@ class DRIT(nn.Module):
     loss_kl_zc_b = self._l2_regularize(self.z_content_b) * 0.01
 
     # cross cycle consistency loss
-    loss_G_L1_A = self.criterionL1(self.fake_A_recon, self.real_A_encoded) * 80
-    loss_G_L1_B = self.criterionL1(self.fake_B_recon, self.real_B_encoded) * 80
-    loss_G_L1_AA = self.criterionL1(self.fake_AA_encoded, self.real_A_encoded) * 80
-    loss_G_L1_BB = self.criterionL1(self.fake_BB_encoded, self.real_B_encoded) * 80
+    loss_G_L1_A = self.criterionL1(self.fake_A_recon, self.real_A_encoded) * 2
+    loss_G_L1_B = self.criterionL1(self.fake_B_recon, self.real_B_encoded) * 2
+    loss_G_L1_AA = self.criterionL1(self.fake_AA_encoded, self.real_A_encoded) * 2
+    loss_G_L1_BB = self.criterionL1(self.fake_BB_encoded, self.real_B_encoded) * 2
 
     # loss_G = loss_G_GAN_A + loss_G_GAN_B + \
     #          loss_G_GAN_Acontent + loss_G_GAN_Bcontent + \
@@ -325,23 +366,39 @@ class DRIT(nn.Module):
     self.l1_recon_BB_loss = loss_G_L1_BB.item()
     self.G_loss = loss_G.item()
 
+  # def backward_G_GAN_content(self, data):
+  #   outs = self.disContent.forward(data)
+
+  #   for out in outs:
+  #     outputs_fake = nn.functional.sigmoid(out)
+  #     all_half = 0.5*torch.ones((outputs_fake.size(0))).cuda(self.gpu)
+  #     ad_loss = nn.functional.binary_cross_entropy(outputs_fake, all_half)
+  #   return ad_loss
+  # WGAN loss ----------------------------------
   def backward_G_GAN_content(self, data):
     outs = self.disContent.forward(data)
 
     for out in outs:
-      outputs_fake = nn.functional.sigmoid(out)
-      all_half = 0.5*torch.ones((outputs_fake.size(0))).cuda(self.gpu)
-      ad_loss = nn.functional.binary_cross_entropy(outputs_fake, all_half)
+      ad_loss = torch.mean(out)
     return ad_loss
 
+  # def backward_G_GAN(self, fake, netD=None):
+  #   outs_fake = netD.forward(fake)
+
+  #   loss_G = 0
+  #   for out_a in outs_fake:
+  #     outputs_fake = nn.functional.sigmoid(out_a)
+  #     all_ones = torch.ones_like(outputs_fake).cuda(self.gpu)
+  #     loss_G += nn.functional.binary_cross_entropy(outputs_fake, all_ones)
+  #   return loss_G
+  # WGAN loss -------------------------------------------
   def backward_G_GAN(self, fake, netD=None):
     outs_fake = netD.forward(fake)
 
     loss_G = 0
     for out_a in outs_fake:
-      outputs_fake = nn.functional.sigmoid(out_a)
-      all_ones = torch.ones_like(outputs_fake).cuda(self.gpu)
-      loss_G += nn.functional.binary_cross_entropy(outputs_fake, all_ones)
+      outputs_fake = out_a
+      loss_G += -torch.mean(outputs_fake)
     return loss_G
 
   def backward_G_alone(self):

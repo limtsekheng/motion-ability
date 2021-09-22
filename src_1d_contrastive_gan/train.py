@@ -40,7 +40,7 @@ def main():
   writer = SummaryWriter()
   
   for ep in range(ep0, opts.n_ep):
-    for it, (images_a, images_b) in enumerate(train_loader):
+    for it, (images_a, labels_a, images_b, labels_b) in enumerate(train_loader):
       if images_a.size(0) != opts.batch_size or images_b.size(0) != opts.batch_size:
         continue
 
@@ -49,17 +49,10 @@ def main():
       images_b = images_b.cuda(opts.gpu).detach()
 
       # update model
-      if (it + 1) % opts.d_iter != 0 and it < len(train_loader) - 2:
-        model.update_D_content(images_a, images_b)
-        continue
-      else:
-        model.update_D(images_a, images_b)
-        model.update_EG()
-
-      # model.input_for_forward(images_a, images_b)
-      # model.forward()
-      # model.update_EG()
-
+      model.input_for_forward(images_a, labels_a, images_b, labels_b)
+      model.forward()
+      model.update_EG()
+      model.update_D(images_a, images_b)
 
       print('total_it: %d (ep %d, it %d), lr %08f' % (total_it, ep, it, model.gen_opt.param_groups[0]['lr']))
       total_it += 1
@@ -79,19 +72,10 @@ def main():
     saver.write_model(ep, total_it, model)
 
     writer.add_scalar('Loss/train', model.G_loss, ep)
-    writer.add_scalar('DisContentLoss/train', model.disContent_loss, ep)
-
-    dis_domain_loss = model.disA_loss + model.disB_loss
-    writer.add_scalar('DisDomainLoss/train', dis_domain_loss, ep)
-
-    gen_content_loss = model.gan_loss_acontent + model.gan_loss_bcontent
-    writer.add_scalar('GenContentLoss/train', gen_content_loss, ep)
-
-    cross_recon_loss = model.l1_recon_A_loss + model.l1_recon_B_loss
-    writer.add_scalar('CrossReconLoss/train', cross_recon_loss, ep)   
-
-    self_recon_loss = model.l1_recon_AA_loss + model.l1_recon_BB_loss
-    writer.add_scalar('SelfReconLoss/train', self_recon_loss, ep) 
+    writer.add_scalar('ContrastiveLoss/train', model.contrastive_loss, ep)
+    writer.add_scalar('CrossContentLoss/train', model.cross_content_A_loss + model.cross_content_B_loss, ep)
+    writer.add_scalar('SelfReconLoss/train', model.l1_recon_AA_loss + model.l1_recon_BB_loss, ep)
+    writer.add_scalar('CrossReconLoss/train', model.l1_recon_A_loss + model.l1_recon_B_loss, ep)
 
   writer.flush()
   writer.close()
